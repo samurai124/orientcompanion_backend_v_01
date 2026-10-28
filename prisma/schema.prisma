@@ -1,0 +1,532 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  COUNSELOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum StudentStage {
+  PRE_BAC
+  POST_BAC
+  CONCOURS_PREP
+}
+
+enum SelectionMode {
+  DOSSIER
+  CONCOURS
+  MIXED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  WAITLISTED
+}
+
+enum ChecklistStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum Feasibility {
+  ON_TRACK
+  AT_RISK
+  UNLIKELY
+}
+
+enum MentorshipStatus {
+  REQUESTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum TaskType {
+  REVISION
+  PRACTICE
+  MOCK_EXAM
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id           Int          @id @default(autoincrement())
+  email        String       @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role         @default(STUDENT)
+  status       UserStatus   @default(ACTIVE)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  student        Student?
+  counselor      Counselor?
+  refreshTokens  RefreshToken[]
+  subscriptions  Subscription[]
+  payments       Payment[]
+  notifications  Notification[]
+
+  @@map("users")
+}
+
+model Student {
+  id           Int          @id @default(autoincrement())
+  userId       Int          @unique
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bacTrack     String?
+  bacYear      Int?
+  region       String?
+  stage        StudentStage @default(PRE_BAC)
+  preferences  Json?
+  riasecScores Json?
+  embedding    Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  grades             StudentGrade[]
+  applications       StudentApplication[]
+  recommendations    Recommendation[]
+  gradeGoals         GradeGoal[]
+  mentorshipSessions MentorshipSession[]
+  examAttempts       ExamAttempt[]
+  studyPlans         StudyPlan[]
+  chatMessages       ChatMessage[]
+
+  @@map("students")
+}
+
+model StudentGrade {
+  id          Int      @id @default(autoincrement())
+  studentId   Int
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectCode String
+  gradeValue  Float
+  period      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([studentId, subjectCode, period])
+  @@map("student_grades")
+}
+
+model Counselor {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties Json?
+  bio         String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  availabilitySlots  AvailabilitySlot[]
+  mentorshipSessions MentorshipSession[]
+
+  @@map("counselors")
+}
+
+model AvailabilitySlot {
+  id          Int       @id @default(autoincrement())
+  counselorId Int
+  counselor   Counselor @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  createdAt   DateTime  @default(now())
+
+  @@map("availability_slots")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model School {
+  id          Int      @id @default(autoincrement())
+  name        String
+  acronym     String
+  type        String
+  city        String
+  region      String
+  website     String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  filieres             Filiere[]
+  requiredDocuments    RequiredDocument[]
+  applicationProcesses ApplicationProcess[]
+
+  @@map("schools")
+}
+
+model Filiere {
+  id                 Int      @id @default(autoincrement())
+  schoolId           Int
+  school             School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?  @db.Text
+  level              String
+  requiredBacTracks  Json
+  riasecProfile      Json
+  tags               Json
+  embedding          Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  admissionRequirements AdmissionRequirement[]
+  historicalCutoffs    HistoricalCutoff[]
+  applications          StudentApplication[]
+  recommendations       Recommendation[]
+  gradeGoals            GradeGoal[]
+
+  @@map("filieres")
+}
+
+model AdmissionRequirement {
+  id               Int           @id @default(autoincrement())
+  filiereId        Int
+  filiere          Filiere       @relation(fields: [filiereId], references: [id], onDelete: Cascade)
+  year             Int
+  minAverage       Float
+  selectionMode    SelectionMode @default(DOSSIER)
+  subjectWeights   Json
+  minSubjectGrades Json?
+  sourceUrl        String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("admission_requirements")
+}
+
+model HistoricalCutoff {
+  id          Int      @id @default(autoincrement())
+  filiereId   Int
+  filiere     Filiere  @relation(fields: [filiereId], references: [id], onDelete: Cascade)
+  year        Int
+  cutoffScore Float
+  source      String?
+  createdAt   DateTime @default(now())
+
+  @@map("historical_cutoffs")
+}
+
+model RequiredDocument {
+  id          Int      @id @default(autoincrement())
+  schoolId    Int
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name        String
+  description String?  @db.Text
+  isMandatory Boolean  @default(true)
+  howToObtain String?  @db.Text
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  checklistItems StudentChecklistItem[]
+
+  @@map("required_documents")
+}
+
+model ApplicationProcess {
+  id           Int       @id @default(autoincrement())
+  schoolId     Int
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  year         Int
+  openDate     DateTime
+  closeDate    DateTime
+  concoursDate DateTime?
+  steps        Json
+  officialLink String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("application_processes")
+}
+
+model StudentApplication {
+  id        Int               @id @default(autoincrement())
+  studentId Int
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  filiereId Int
+  filiere   Filiere           @relation(fields: [filiereId], references: [id], onDelete: Cascade)
+  status    ApplicationStatus @default(DRAFT)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  checklistItems StudentChecklistItem[]
+
+  @@unique([studentId, filiereId])
+  @@map("student_applications")
+}
+
+model StudentChecklistItem {
+  id                 Int                @id @default(autoincrement())
+  applicationId      Int
+  application        StudentApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  requiredDocumentId Int
+  requiredDocument   RequiredDocument   @relation(fields: [requiredDocumentId], references: [id], onDelete: Cascade)
+  status             ChecklistStatus    @default(TODO)
+  uploadedFileUrl    String?
+  notes              String?
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([applicationId, requiredDocumentId])
+  @@map("student_checklist_items")
+}
+
+model Recommendation {
+  id              Int      @id @default(autoincrement())
+  studentId       Int
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  filiereId       Int
+  filiere         Filiere  @relation(fields: [filiereId], references: [id], onDelete: Cascade)
+  structuredScore Float
+  vectorScore     Float
+  finalScore      Float
+  rank            Int
+  explanation     String?  @db.Text
+  generatedAt     DateTime @default(now())
+
+  @@map("recommendations")
+}
+
+model GradeGoal {
+  id                   Int         @id @default(autoincrement())
+  studentId            Int
+  student              Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  filiereId            Int
+  filiere              Filiere     @relation(fields: [filiereId], references: [id], onDelete: Cascade)
+  computedRequirements Json
+  feasibility          Feasibility @default(ON_TRACK)
+  computedAt           DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@map("grade_goals")
+}
+
+model MentorshipSession {
+  id             Int              @id @default(autoincrement())
+  studentId      Int
+  student        Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  counselorId    Int
+  counselor      Counselor        @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+  status         MentorshipStatus @default(REQUESTED)
+  requestedStart DateTime
+  requestedEnd   DateTime
+  subject        String
+  meetingLink    String?
+  report         String?          @db.Text
+  rating         Int?
+  priority       Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("mentorship_sessions")
+}
+
+model Plan {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  name         String
+  priceMad     Float
+  durationDays Int
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        Int                @id @default(autoincrement())
+  userId    Int
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    Int
+  plan      Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status    SubscriptionStatus @default(ACTIVE)
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  payments Payment[]
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId Int
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amountMad      Float
+  provider       String
+  status         PaymentStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model Concours {
+  id          Int       @id @default(autoincrement())
+  name        String
+  examDate    DateTime?
+  subjects    Json
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  questions  Question[]
+  mockExams  MockExam[]
+  studyPlans StudyPlan[]
+
+  @@map("concours")
+}
+
+model Question {
+  id            Int      @id @default(autoincrement())
+  concoursId    Int
+  concours      Concours @relation(fields: [concoursId], references: [id], onDelete: Cascade)
+  subjectCode   String
+  topic         String
+  difficulty    String
+  statement     String   @db.Text
+  options       Json
+  correctOption Int
+  explanation   String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  @@map("questions")
+}
+
+model MockExam {
+  id              Int      @id @default(autoincrement())
+  concoursId      Int
+  concours        Concours @relation(fields: [concoursId], references: [id], onDelete: Cascade)
+  title           String
+  durationMinutes Int
+  questionIds     Json
+  createdAt       DateTime @default(now())
+
+  attempts ExamAttempt[]
+
+  @@map("mock_exams")
+}
+
+model ExamAttempt {
+  id             Int       @id @default(autoincrement())
+  studentId      Int
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  mockExamId     Int
+  mockExam       MockExam  @relation(fields: [mockExamId], references: [id], onDelete: Cascade)
+  startedAt      DateTime  @default(now())
+  submittedAt    DateTime?
+  answers        Json?
+  score          Float?
+  scoreBySubject Json?
+  scoreByTopic   Json?
+
+  @@map("exam_attempts")
+}
+
+model StudyPlan {
+  id           Int       @id @default(autoincrement())
+  studentId    Int
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  concoursId   Int
+  concours     Concours  @relation(fields: [concoursId], references: [id], onDelete: Cascade)
+  hoursPerWeek Int
+  examDate     DateTime
+  weakTopics   Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tasks StudyTask[]
+
+  @@map("study_plans")
+}
+
+model StudyTask {
+  id           Int        @id @default(autoincrement())
+  studyPlanId  Int
+  studyPlan    StudyPlan  @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+  date         DateTime
+  subjectCode  String
+  topic        String
+  durationMin  Int
+  type         TaskType   @default(REVISION)
+  status       TaskStatus @default(TODO)
+
+  @@map("study_tasks")
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String    @db.Text
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("notifications")
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sessionId String
+  role      ChatRole
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
+}

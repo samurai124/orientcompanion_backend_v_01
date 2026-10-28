@@ -1,0 +1,456 @@
+### OrientCompanion API - Sample HTTP Requests
+### Base URL
+@baseUrl = http://localhost:5000/api/v1
+
+### 1. HEALTH CHECKS
+GET http://localhost:5000/health
+
+###
+GET {{baseUrl}}/health
+
+###############################################################################
+# 2. AUTHENTICATION & PROFILES
+###############################################################################
+
+### Register a new Student
+# @name registerStudent
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "karim.alami@example.ma",
+  "password": "Password123",
+  "firstName": "Karim",
+  "lastName": "El Alami",
+  "role": "STUDENT",
+  "bacTrack": "SM_A",
+  "bacYear": 2024,
+  "region": "Casablanca-Settat",
+  "stage": "PRE_BAC"
+}
+
+### Login as Seed Student (Hamza Bennani)
+# @name loginStudent
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "student1@orientcompanion.ma",
+  "password": "Student123!"
+}
+
+### Capture Token from Student Login
+@studentToken = {{loginStudent.response.body.data.accessToken}}
+@refreshToken = {{loginStudent.response.body.data.refreshToken}}
+
+### Login as Seed Premium Student (Sara El Fassi)
+# @name loginPremiumStudent
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "student2@orientcompanion.ma",
+  "password": "Student123!"
+}
+
+@premiumStudentToken = {{loginPremiumStudent.response.body.data.accessToken}}
+
+### Login as Seed Counselor (Fatima-Zahra Amrani)
+# @name loginCounselor
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "counselor1@orientcompanion.ma",
+  "password": "Counselor123!"
+}
+
+@counselorToken = {{loginCounselor.response.body.data.accessToken}}
+
+### Login as Seed Admin
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@orientcompanion.ma",
+  "password": "Admin123!"
+}
+
+@adminToken = {{loginAdmin.response.body.data.accessToken}}
+
+### Get Authenticated User Profile
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{studentToken}}
+
+### Refresh Access Token (Rotation)
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### Logout
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###############################################################################
+# 3. STUDENTS & GRADES
+###############################################################################
+
+### Get My Student Profile
+GET {{baseUrl}}/students/me
+Authorization: Bearer {{studentToken}}
+
+### Update My Student Profile
+PUT {{baseUrl}}/students/me
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "stage": "POST_BAC",
+  "preferences": {
+    "interests": ["Génie Logiciel", "Intelligence Artificielle", "Mathématiques"],
+    "preferredCities": ["Casablanca", "Rabat"]
+  }
+}
+
+### Bulk Upsert Academic Grades (0-20 scale)
+PUT {{baseUrl}}/students/me/grades
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "grades": [
+    { "subjectCode": "MATH", "gradeValue": 18.0, "period": "NATIONAL" },
+    { "subjectCode": "PC", "gradeValue": 16.5, "period": "NATIONAL" },
+    { "subjectCode": "FR", "gradeValue": 15.0, "period": "REGIONAL" },
+    { "subjectCode": "EN", "gradeValue": 17.0, "period": "NATIONAL" }
+  ]
+}
+
+### Get My Grades
+GET {{baseUrl}}/students/me/grades
+Authorization: Bearer {{studentToken}}
+
+### Get Student Details by ID (Counselor or Admin only)
+GET {{baseUrl}}/students/1
+Authorization: Bearer {{counselorToken}}
+
+###############################################################################
+# 4. RIASEC ASSESSMENT & CHATBOT
+###############################################################################
+
+### Get RIASEC Questionnaire
+GET {{baseUrl}}/assessment/questionnaire
+
+### Submit RIASEC Answers (30 questions evaluated 1 to 5)
+POST {{baseUrl}}/assessment/submit
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    { "questionId": 1, "score": 3 }, { "questionId": 2, "score": 2 }, { "questionId": 3, "score": 3 },
+    { "questionId": 4, "score": 2 }, { "questionId": 5, "score": 3 },
+    { "questionId": 6, "score": 5 }, { "questionId": 7, "score": 5 }, { "questionId": 8, "score": 5 },
+    { "questionId": 9, "score": 4 }, { "questionId": 10, "score": 5 },
+    { "questionId": 11, "score": 2 }, { "questionId": 12, "score": 2 }, { "questionId": 13, "score": 3 },
+    { "questionId": 14, "score": 2 }, { "questionId": 15, "score": 3 },
+    { "questionId": 16, "score": 3 }, { "questionId": 17, "score": 4 }, { "questionId": 18, "score": 3 },
+    { "questionId": 19, "score": 2 }, { "questionId": 20, "score": 4 },
+    { "questionId": 21, "score": 4 }, { "questionId": 22, "score": 3 }, { "questionId": 23, "score": 4 },
+    { "questionId": 24, "score": 4 }, { "questionId": 25, "score": 3 },
+    { "questionId": 26, "score": 4 }, { "questionId": 27, "score": 5 }, { "questionId": 28, "score": 4 },
+    { "questionId": 29, "score": 5 }, { "questionId": 30, "score": 4 }
+  ]
+}
+
+### Chatbot Guidance Interaction (State Machine)
+POST {{baseUrl}}/chatbot/message
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "sessionId": "session-demo-01",
+  "content": "Bonjour, je suis actuellement en 2ème année Bac Sciences Maths A et je recherche des écoles d'ingénieurs."
+}
+
+###############################################################################
+# 5. RECOMMENDATIONS PIPELINE
+###############################################################################
+
+### Run Hybrid Recommendation Engine
+POST {{baseUrl}}/recommendations/generate
+Authorization: Bearer {{studentToken}}
+
+### Get Saved Recommendations
+GET {{baseUrl}}/recommendations/me
+Authorization: Bearer {{studentToken}}
+
+###############################################################################
+# 6. GRADE TARGET PLANNER
+###############################################################################
+
+### Set Target Filière Goal
+POST {{baseUrl}}/grade-planner/goals
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "filiereId": 4
+}
+
+### Get My Grade Goals
+GET {{baseUrl}}/grade-planner/goals
+Authorization: Bearer {{studentToken}}
+
+### Simulate Target Breakdown with Hypothetical Grades
+POST {{baseUrl}}/grade-planner/simulate
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "filiereId": 4,
+  "hypotheticalGrades": {
+    "MATH": 17.0,
+    "PC": 16.0,
+    "FR": 14.0,
+    "EN": 15.0
+  }
+}
+
+###############################################################################
+# 7. PUBLIC SCHOOLS & FILIÈRES DIRECTORY
+###############################################################################
+
+### List Higher Education Schools
+GET {{baseUrl}}/schools?city=Rabat&page=1&limit=10
+
+### Get School by ID
+GET {{baseUrl}}/schools/2
+
+### Get School Admission Requirements and Processes
+GET {{baseUrl}}/schools/2/requirements
+
+### List Filières (Filtered by Bac Track)
+GET {{baseUrl}}/filieres?bacTrack=SM_A&page=1&limit=10
+
+### Get Filière by ID
+GET {{baseUrl}}/filieres/4
+
+###############################################################################
+# 8. APPLICATION TOOLKIT
+###############################################################################
+
+### Create an Application for a Filière
+POST {{baseUrl}}/applications
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "filiereId": 4
+}
+
+### Get My Applications with Checklists
+GET {{baseUrl}}/applications/me
+Authorization: Bearer {{studentToken}}
+
+### Get Application Progress & Missing Documents
+GET {{baseUrl}}/applications/1/progress
+Authorization: Bearer {{studentToken}}
+
+### Update Checklist Item Status
+PATCH {{baseUrl}}/applications/1/checklist/1
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "status": "DONE",
+  "notes": "Dossier retiré auprès du secrétariat du lycée"
+}
+
+###############################################################################
+# 9. SUBSCRIPTIONS & PREMIUM
+###############################################################################
+
+### View Subscription Plans
+GET {{baseUrl}}/plans
+
+### Checkout / Subscribe to Premium (Simulated Payment)
+POST {{baseUrl}}/subscriptions/checkout
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "planCode": "PREMIUM"
+}
+
+### Get My Subscription Status
+GET {{baseUrl}}/subscriptions/me
+Authorization: Bearer {{studentToken}}
+
+###############################################################################
+# 10. CONCOURS COMPANION (PREMIUM)
+###############################################################################
+
+### List Concours (Free)
+GET {{baseUrl}}/concours
+
+### Get Concours Details
+GET {{baseUrl}}/concours/1
+
+### Generate Smart Study Plan (Premium)
+POST {{baseUrl}}/study-plans
+Authorization: Bearer {{premiumStudentToken}}
+Content-Type: application/json
+
+{
+  "concoursId": 1,
+  "hoursPerWeek": 12,
+  "examDate": "2024-07-20T08:30:00Z"
+}
+
+### Get My Study Plan and Scheduled Tasks
+GET {{baseUrl}}/study-plans/me
+Authorization: Bearer {{premiumStudentToken}}
+
+### Browse Concours Question Bank (Premium)
+GET {{baseUrl}}/question-bank?concoursId=1&subjectCode=MATH&page=1&limit=10
+Authorization: Bearer {{premiumStudentToken}}
+
+### Start Timed Mock Exam (Premium)
+POST {{baseUrl}}/mock-exams/1/start
+Authorization: Bearer {{premiumStudentToken}}
+
+### Submit Mock Exam Answers (Premium)
+POST {{baseUrl}}/mock-exams/1/submit
+Authorization: Bearer {{premiumStudentToken}}
+Content-Type: application/json
+
+{
+  "answers": {
+    "1": 1,
+    "2": 1,
+    "3": 0,
+    "4": 1,
+    "5": 2
+  }
+}
+
+### Get My Past Exam Attempts History
+GET {{baseUrl}}/exam-attempts/me
+Authorization: Bearer {{premiumStudentToken}}
+
+### Ask AI Concours Tutor (Premium)
+POST {{baseUrl}}/tutor/ask
+Authorization: Bearer {{premiumStudentToken}}
+Content-Type: application/json
+
+{
+  "questionId": 1
+}
+
+### Ask General Academic Guidance Question
+POST {{baseUrl}}/tutor/ask
+Authorization: Bearer {{premiumStudentToken}}
+Content-Type: application/json
+
+{
+  "questionText": "Quelle est la meilleure stratégie pour gérer son temps lors des épreuves de Mathématiques du concours ENSA ?"
+}
+
+###############################################################################
+# 11. MENTORSHIP
+###############################################################################
+
+### Counselor Manages Availability Slots
+GET {{baseUrl}}/counselors/me/availability
+Authorization: Bearer {{counselorToken}}
+
+### Add Counselor Availability Slot
+POST {{baseUrl}}/counselors/me/availability
+Authorization: Bearer {{counselorToken}}
+Content-Type: application/json
+
+{
+  "dayOfWeek": 5,
+  "startTime": "14:00",
+  "endTime": "18:00"
+}
+
+### Request a 1-on-1 Mentorship Session
+POST {{baseUrl}}/mentorship/sessions
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "counselorId": 1,
+  "requestedStart": "2026-11-02T09:30:00Z",
+  "requestedEnd": "2026-11-02T10:30:00Z",
+  "subject": "Conseil personnalisé sur les candidatures ENSA vs CPGE"
+}
+
+### List User Mentorship Sessions
+GET {{baseUrl}}/mentorship/sessions
+Authorization: Bearer {{studentToken}}
+
+### Counselor Accepts Session (Generates Jitsi Video Meeting Link)
+PATCH {{baseUrl}}/mentorship/sessions/1/accept
+Authorization: Bearer {{counselorToken}}
+
+### Counselor Completes Session with Report
+PATCH {{baseUrl}}/mentorship/sessions/1/complete
+Authorization: Bearer {{counselorToken}}
+Content-Type: application/json
+
+{
+  "report": "Séance très constructive. Profil parfaitement aligné avec les filières d'ingénierie logicielle. Travail ciblé conseillé sur la physique."
+}
+
+### Student Rates Completed Session
+POST {{baseUrl}}/mentorship/sessions/1/rating
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "rating": 5
+}
+
+###############################################################################
+# 12. NOTIFICATIONS
+###############################################################################
+
+### Get My Notifications
+GET {{baseUrl}}/notifications
+Authorization: Bearer {{studentToken}}
+
+### Mark Notification as Read
+PATCH {{baseUrl}}/notifications/1/read
+Authorization: Bearer {{studentToken}}
+
+###############################################################################
+# 13. ADMIN PORTAL & ANALYTICS
+###############################################################################
+
+### Platform Orientation Analytics & Statistics
+GET {{baseUrl}}/admin/stats
+Authorization: Bearer {{adminToken}}
+
+### List Platform Users
+GET {{baseUrl}}/admin/users?role=STUDENT&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Suspend or Activate User Account
+PATCH {{baseUrl}}/admin/users/3/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE"
+}
